@@ -1,18 +1,26 @@
-# RouteX: Transparent Tor Interceptor
+<div align="center">
 
-![Language](https://img.shields.io/badge/language-C-blue.svg)
-![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg)
-![Protocol](https://img.shields.io/badge/protocol-SOCKS5-green.svg)
+# RouteX
+### Transparent Tor Interceptor & SOCKS5 Tunneler
 
-**RouteX** is a systems-level intercepting proxy built in C that forces TCP connections through the Tor network without application support.
+![Language](https://img.shields.io/badge/Language-C-00599C?style=for-the-badge&logo=c&logoColor=white)
+![Platform](https://img.shields.io/badge/Platform-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)
+![Security](https://img.shields.io/badge/Security-OpenSSL-FF0000?style=for-the-badge&logo=openssl&logoColor=white)
+![Protocol](https://img.shields.io/badge/Protocol-SOCKS5-2ea44f?style=for-the-badge)
 
-It uses dynamic linker hijacking (`LD_PRELOAD` on Linux / `DYLD_INSERT_LIBRARIES` on macOS) to hook system calls, transparently wrapping standard TCP sockets into an anonymous SOCKS5 tunnel with **Remote DNS** resolution and **OpenSSL** encryption.
+</div>
+
+---
+
+> **RouteX** is a systems-level intercepting proxy built in **C** that forces TCP connections through the Tor network without application support.
+>
+> By leveraging **Dynamic Linker Hijacking** (`DYLD_INSERT_LIBRARIES` / `LD_PRELOAD`), it hooks system calls to transparently wrap standard TCP sockets into an anonymous SOCKS5 tunnel with **Remote DNS** resolution and **OpenSSL** encryption.
 
 ---
 
 ## 🛠 Architecture
 
-RouteX does not require the target application to support proxies. It injects itself between the application and the Kernel using a shared library.
+RouteX bypasses the need for application-level proxy support by injecting itself directly between the target process and the OS Kernel.
 
 ```mermaid
 sequenceDiagram
@@ -48,7 +56,7 @@ sequenceDiagram
 
 
 ## Installation & Build
-Prerequisites
+Prerequisites:
 - GCC (Compiler)
 - Tor (Must be running on port 9050)
 - OpenSSL (For HTTPS support)
@@ -78,7 +86,7 @@ make
 ## Usage
 1. The Wrapper Script (Recommended):
 
-Use the included routex script to automatically handle library injection and environment variables.
+- Use the included routex script to automatically handle library injection and environment variables.
 ```
 # Usage: ./routex <hostname>
 ./routex www.google.com
@@ -86,7 +94,8 @@ Use the included routex script to automatically handle library injection and env
 
 2. Manual Injection (Power User):
 
-You can inject RouteX into any compatible CLI tool or script by manually setting the environment variables.
+- You can inject RouteX into any compatible CLI tool or script by manually setting the environment variables.
+
 on MacOS:
 ```
 export ROUTEX_HOSTNAME="eth0.me"
@@ -105,21 +114,22 @@ export LD_PRELOAD=$(pwd)/tord.so
 ```
 
 ## Technical Deep Dive
-1. The Hook (tord.c)
-RouteX defines a function named connect that matches the signature of the standard POSIX system call. When loaded into memory before libc, the dynamic linker links the application's call to our function.
+1. The Hook `tord.c`:
 
-We then pause the execution, establish a side-channel to the local Tor SOCKS proxy (127.0.0.1:9050), and perform the handshake before handing control back to the application.
+- RouteX defines a function named connect that matches the signature of the standard `POSIX` system call. When loaded into memory before libc, the dynamic linker links the application's call to our function.
+- We then pause the execution, establish a side-channel to the local Tor SOCKS proxy `(127.0.0.1:9050)`, and perform the handshake before handing control back to the application.
 
-2. The Protocol (SOCKS5)
+2. The Protocol (SOCKS5):
+
 We manually construct raw bytes to speak SOCKS5:
+- **Handshake:** `0x05` `0x01` `0x00` (Version 5, 1 Auth Method, No Auth).
+- **Request:** ```0x05``` ```0x01``` ```0x00``` ```0x03``` `<Len>` `<Hostname>` `<Port>`
 
-- **Handshake:** 0x05 0x01 0x00 (Version 5, 1 Auth Method, No Auth).
-- **Request:** 0x05 0x01 0x00 0x03 <Len> <Hostname> <Port>
+Note: The `0x03` byte is critical. It tells Tor "Do not ask my computer's DNS server for the IP. You figure it out." This closes the DNS leak vulnerability.
 
-Note: The 0x03 byte is critical. It tells Tor "Do not ask my computer's DNS server for the IP. You figure it out." This closes the DNS leak vulnerability.
+3. The Encryption (OpenSSL):
 
-3. The Encryption (OpenSSL)
-Once the SOCKS tunnel is established, we treat the socket as a standard file descriptor and hand it off to SSL_set_fd(). This layers a TLS handshake inside the Tor tunnel, ensuring end-to-end encryption to the destination.
+- Once the SOCKS tunnel is established, we treat the socket as a standard file descriptor and hand it off to `SSL_set_fd()`. This layers a TLS handshake inside the Tor tunnel, ensuring end-to-end encryption to the destination.
 
 ## ⚠️ Disclaimer
-This tool is for educational purposes and security research only. Ujjwal Sharma is not responsible for any misuse of this software.
+This tool is for educational purposes and security research only. Ujjwal Sharma is **not** responsible for any misuse of this software.
