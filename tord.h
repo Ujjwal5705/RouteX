@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <dlfcn.h>
 #include <errno.h>
+#include <pthread.h>
 
 #define USERNAME "RouteX"
 #define PROXY    "127.0.0.1"

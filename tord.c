@@ -2,13 +2,17 @@
 #include "tord.h"
 
 static int (*real_connect)(int, const struct sockaddr *, socklen_t) = NULL;
+static pthread_once_t connect_init_once = PTHREAD_ONCE_INIT;
+
+static void init_real_connect() {
+    real_connect = dlsym(RTLD_NEXT, "connect");
+}
 
 int connect(int s2, const struct sockaddr *sock2, socklen_t address_len) {
     
-    if (!real_connect) {
-        real_connect = dlsym(RTLD_NEXT, "connect");
-        if (!real_connect) return -1;
-    }
+    pthread_once(&connect_init_once, init_real_connect);
+
+    if (!real_connect) return -1;
 
     if (sock2->sa_family != AF_INET)
         return real_connect(s2, sock2, address_len);
