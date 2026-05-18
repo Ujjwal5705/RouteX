@@ -31,6 +31,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+    SSL_CTX_set_default_verify_paths(ctx);
+
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in server;
     server.sin_family = AF_INET;
@@ -47,12 +50,23 @@ int main(int argc, char *argv[]) {
     SSL_set_fd(ssl, sock);
 
     SSL_set_tlsext_host_name(ssl, hostname);
+    SSL_set1_host(ssl, hostname);
 
     printf("🔒 Performing SSL Handshake...\n");
     if (SSL_connect(ssl) <= 0) {
         ERR_print_errors_fp(stderr);
         return 1;
     }
+
+    long verify_result = SSL_get_verify_result(ssl);
+    if (verify_result != X509_V_OK) {
+        fprintf(stderr, "Certificate verification failed: %ld\n", verify_result);
+        SSL_free(ssl);
+        close(sock);
+        SSL_CTX_free(ctx);
+        return 1;
+    }
+
     printf("🔐 SSL Connected using %s\n", SSL_get_cipher(ssl));
 
     char req[1024];
